@@ -5,6 +5,8 @@ var CommentList = require('./CommentList');
 
 var MainListCell = require('./MainListCell');
 
+var Refreshing = require('./Refreshing')
+
 var hotUrl = "http://m2.qiushibaike.com/article/list/suggest?count=20&page="
 
 var {
@@ -64,14 +66,13 @@ class MainList extends Component {
       loaded: false,
       currentPage: 0,
       dataSource: dataSource,
-      pageLoaded: true,
-      data: []
+      data: [],
+      reloading: false,
     };
   }
 
   fetchData() {
     this.state.loaded = false
-    this.state.pageLoaded = false
     var url = hotUrl + (this.state.currentPage+1)
     fetch(url)
     .then((response) => response.json())
@@ -89,13 +90,49 @@ class MainList extends Component {
           loaded: true,
           currentPage: this.state.currentPage+1,
           data: newData
-          // pageLoaded: true
         });
     })
     .catch((error) => {
       console.warn(error);
     });
 
+  }
+
+  reFetchData() {
+    console.log('ref')
+    // this.state.loaded = false
+    var url = hotUrl + '1'
+    this.state.currentPage = 0
+    fetch(url)
+    .then((response) => response.json())
+    .then((responseData) => {
+
+      var newData = responseData.items
+      this.setState({
+          dataSource: this.state.dataSource.cloneWithRows(newData),
+          loaded: true,
+          currentPage: this.state.currentPage+1,
+          data: newData
+        });
+    })
+    .catch((error) => {
+      console.warn(error);
+    });
+
+  }
+
+  reloadData() {
+    if (this.willReload || this.state.reloading) return
+
+    this.willReload = true
+    Promise.all([
+      this.reFetchData(),
+      new Promise((resolve) => this.setState({reloading: true}, resolve)),
+      new Promise((resolve) => setTimeout(resolve, 300)),
+    ]).then(([data]) => {
+      this.willReload = false
+      this.setState({reloading: false})
+    })
   }
 
   componentDidMount(){
@@ -114,8 +151,7 @@ class MainList extends Component {
   }
 
   renderForRow(rowData, sectionID, rowID){
-    console.log('=======')
-    console.log(rowData)
+
     return (
 			<MainListCell
       onSelect={() => this.toDetail(rowData)}
@@ -130,12 +166,36 @@ class MainList extends Component {
 			<ListView
 				dataSource={this.state.dataSource}
 				renderRow={this.renderForRow.bind(this)}
-				renderFooter={this.renderFooterLoading(this)}
+				renderFooter={this.renderFooterLoading.bind(this)}
+        renderHeader={this.renderHeader.bind(this)}
 				onEndReached={this.fetchData.bind(this)}
 				onEndReachedThreshold={0}
+        onScroll={this.handleScroll.bind(this)}
 				// style={Style.listView}
         />
 		);
+  }
+
+  renderHeader() {
+    var aa = '...'
+    if (this.state.reloading) {
+      return (
+        <View>
+          <Refreshing>
+            {{aa}}
+          </Refreshing>
+        </View>
+      )
+    } else {
+      return null
+    }
+  }
+
+  handleScroll(e) {
+    if (e.nativeEvent.contentOffset.y < -40) {
+      this.reloadData()
+    }
+    // this.props.onScroll && this.props.onScroll(e)
   }
 
   render() {

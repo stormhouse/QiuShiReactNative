@@ -91,10 +91,12 @@ class CommentList extends Component {
       );
   }
 
+  onSelect() {}
+  
   renderContent() {
     return (
       <MainListCell
-        // onSelect={() => this.onSelect()}
+        onSelect={() => this.onSelect()}
         // showImg={this.state.showImg}
         data={this.props.data}
         />
